@@ -1,0 +1,103 @@
+# 📈 Algorithmic Trading Backtester
+
+A complete backtesting engine with a Streamlit UI. Import historical & near real-time
+market data, test trading strategies, and evaluate performance with Sharpe ratio,
+maximum drawdown, and equity curves.
+
+## Features
+
+- ✅ Fetches historical and near real-time market data (via [yfinance](https://github.com/ranaroussi/yfinance))
+- ✅ Interactive UI — pick a ticker, date range, strategy, and parameters, no code required
+- ✅ Three built-in strategies: **Moving Average Crossover**, **Momentum**, **Mean Reversion**
+- ✅ Computes Sharpe Ratio, CAGR, annualized volatility, win rate
+- ✅ Measures Maximum Drawdown
+- ✅ Generates equity curves (strategy vs. buy & hold)
+- ✅ Trade log with entry/exit prices, exportable as CSV
+- ✅ Configurable commission costs and starting capital
+
+## Screenshots
+
+*(Add your own screenshots here after running the app)*
+
+## Project structure
+
+```
+algo-backtester/
+├── app.py              # Streamlit UI (entry point)
+├── data_fetcher.py      # Historical & live data fetching (yfinance)
+├── strategies.py        # Strategy signal generators + registry
+├── backtester.py         # Core backtesting engine & performance metrics
+├── requirements.txt
+└── README.md
+```
+
+## Getting started
+
+### 1. Clone the repo
+
+```bash
+git clone https://github.com/<your-username>/algo-backtester.git
+cd algo-backtester
+```
+
+### 2. Create a virtual environment (recommended)
+
+```bash
+python -m venv venv
+source venv/bin/activate      # Windows: venv\Scripts\activate
+```
+
+### 3. Install dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 4. Run the app
+
+```bash
+streamlit run app.py
+```
+
+Then open the local URL Streamlit prints (usually `http://localhost:8501`).
+
+## How to use
+
+1. Enter a ticker symbol in the sidebar (e.g. `AAPL`, `MSFT`, `BTC-USD`, `EURUSD=X`).
+2. Pick a date range and data interval.
+3. Choose a strategy and tune its parameters with the sliders.
+4. Set your starting capital and commission assumptions.
+5. Click **Run Backtest** to see the equity curve, metrics, and trade log.
+
+## Adding your own strategy
+
+Add a new function to `strategies.py` that takes a DataFrame with a `Close`
+column and returns it with an added `signal` column (`1` = long, `0` = flat).
+Then register it in `STRATEGY_REGISTRY` with its display name and tunable
+parameters — it will automatically appear in the UI.
+
+```python
+def my_strategy(df, some_param=10):
+    out = df.copy()
+    out["signal"] = 0
+    # ... your logic here
+    return out
+
+STRATEGY_REGISTRY["My Strategy"] = {
+    "func": my_strategy,
+    "params": {
+        "some_param": {"label": "Some Param", "type": "int", "default": 10, "min": 1, "max": 100},
+    },
+}
+```
+
+## Notes & disclaimers
+
+- Data is sourced from Yahoo Finance via `yfinance` and may be delayed (~15 min) — not suitable for live trading execution.
+- This tool is for educational and research purposes only. It is **not financial advice**, and past
+  backtested performance does not guarantee future results.
+- Intraday intervals (`1h`, `30m`, `15m`, `5m`) are limited by Yahoo Finance to roughly the last 60 days of history.
+
+## License
+
+MIT — feel free to use, modify, and share.
