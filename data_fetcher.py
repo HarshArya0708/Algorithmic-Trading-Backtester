@@ -86,3 +86,57 @@ def get_default_date_range(days_back: int = 730) -> tuple:
     end = datetime.now()
     start = end - timedelta(days=days_back)
     return start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d")
+
+
+# ---------------------------------------------------------------------------
+# Indian market support
+# ---------------------------------------------------------------------------
+# Yahoo Finance uses these suffixes for Indian exchanges:
+#   .NS  -> NSE (National Stock Exchange)
+#   .BO  -> BSE (Bombay Stock Exchange)
+MARKET_SUFFIXES = {
+    "Global / US": "",
+    "India (NSE)": ".NS",
+    "India (BSE)": ".BO",
+}
+
+# A handful of popular NSE symbols to make the dropdown convenient.
+# (Users can still type any valid NSE/BSE symbol manually.)
+POPULAR_NSE_TICKERS = [
+    "RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK", "HINDUNILVR",
+    "SBIN", "BHARTIARTL", "ITC", "KOTAKBANK", "LT", "AXISBANK",
+    "BAJFINANCE", "MARUTI", "ASIANPAINT", "SUNPHARMA", "TITAN",
+    "WIPRO", "TATAMOTORS", "ADANIENT",
+]
+
+
+def format_ticker(raw_ticker: str, market: str) -> str:
+    """
+    Normalize a user-entered ticker for the selected market by appending
+    the correct Yahoo Finance exchange suffix if it's missing.
+
+    Examples
+    --------
+    format_ticker("RELIANCE", "India (NSE)") -> "RELIANCE.NS"
+    format_ticker("RELIANCE.NS", "India (NSE)") -> "RELIANCE.NS"  (already suffixed)
+    format_ticker("AAPL", "Global / US") -> "AAPL"
+    """
+    raw_ticker = raw_ticker.strip().upper()
+    suffix = MARKET_SUFFIXES.get(market, "")
+
+    if not suffix:
+        return raw_ticker
+
+    # Don't double-append if the user already typed .NS/.BO (or any suffix)
+    if "." in raw_ticker:
+        return raw_ticker
+
+    return f"{raw_ticker}{suffix}"
+
+
+def currency_symbol_for_ticker(ticker: str) -> str:
+    """Return the display currency symbol based on the ticker's exchange suffix."""
+    t = ticker.upper()
+    if t.endswith(".NS") or t.endswith(".BO"):
+        return "₹"
+    return "$"

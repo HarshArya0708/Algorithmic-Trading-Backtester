@@ -15,7 +15,10 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-from data_fetcher import fetch_historical_data, fetch_latest_price, get_default_date_range
+from data_fetcher import (
+    fetch_historical_data, fetch_latest_price, get_default_date_range,
+    format_ticker, currency_symbol_for_ticker, MARKET_SUFFIXES, POPULAR_NSE_TICKERS,
+)
 from strategies import STRATEGY_REGISTRY
 from backtester import Backtester
 
@@ -27,8 +30,24 @@ st.set_page_config(page_title="Algo Trading Backtester", layout="wide", page_ico
 # ---------------------------------------------------------------------------
 st.sidebar.title("⚙️ Backtest Settings")
 
-ticker = st.sidebar.text_input("Ticker symbol", value="AAPL",
-                                help="Any Yahoo Finance symbol, e.g. AAPL, MSFT, BTC-USD, EURUSD=X").upper().strip()
+market = st.sidebar.selectbox("Market", list(MARKET_SUFFIXES.keys()),
+                               help="Choose India (NSE/BSE) to auto-append the correct Yahoo Finance suffix.")
+
+if market == "India (NSE)":
+    quick_pick = st.sidebar.selectbox("Popular NSE stocks (optional)",
+                                       ["-- type your own below --"] + POPULAR_NSE_TICKERS)
+    default_ticker = quick_pick if quick_pick != "-- type your own below --" else "RELIANCE"
+    ticker_help = "NSE symbol without the exchange suffix, e.g. RELIANCE, TCS, INFY. '.NS' is added automatically."
+elif market == "India (BSE)":
+    default_ticker = "RELIANCE"
+    ticker_help = "BSE symbol without the exchange suffix, e.g. RELIANCE, TCS. '.BO' is added automatically."
+else:
+    default_ticker = "AAPL"
+    ticker_help = "Any Yahoo Finance symbol, e.g. AAPL, MSFT, BTC-USD, EURUSD=X."
+
+raw_ticker_input = st.sidebar.text_input("Ticker symbol", value=default_ticker, help=ticker_help)
+ticker = format_ticker(raw_ticker_input, market)
+currency = currency_symbol_for_ticker(ticker)
 
 default_start, default_end = get_default_date_range(days_back=730)
 col1, col2 = st.sidebar.columns(2)
@@ -56,7 +75,9 @@ for param_key, meta in strategy_config["params"].items():
         )
 
 st.sidebar.markdown("---")
-initial_capital = st.sidebar.number_input("Initial capital ($)", min_value=100.0, value=10_000.0, step=500.0)
+capital_default = 800_000.0 if market != "Global / US" else 10_000.0
+initial_capital = st.sidebar.number_input(f"Initial capital ({currency})", min_value=100.0,
+                                           value=capital_default, step=500.0)
 commission_pct = st.sidebar.slider("Commission per trade (%)", min_value=0.0, max_value=1.0, value=0.05, step=0.01) / 100
 risk_free_rate = st.sidebar.slider("Risk-free rate (annual, %)", min_value=0.0, max_value=10.0, value=2.0, step=0.25) / 100
 
@@ -71,12 +92,13 @@ st.caption("Fetches live & historical market data, simulates strategies, and rep
            "max drawdown, and equity curves.")
 
 if ticker:
+    st.caption(f"Resolved ticker: **{ticker}**" + (" (auto-suffixed for Indian exchange)" if "." in ticker and market != "Global / US" else ""))
     try:
         live = fetch_latest_price(ticker)
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("Symbol", live["symbol"])
-        m2.metric("Last Price", f"${live['price']}")
-        m3.metric("Change", f"${live['change']}", f"{live['change_pct']}%")
+        m2.metric("Last Price", f"{currency}{live['price']}")
+        m3.metric("Change", f"{currency}{live['change']}", f"{live['change_pct']}%")
         m4.metric("As of", live["timestamp"])
     except Exception as e:
         st.warning(f"Couldn't fetch a live price for '{ticker}': {e}")
@@ -116,8 +138,12 @@ if run_button:
 
     # --- Metrics row ---
     st.subheader("📊 Performance Metrics")
-    metric_cols = st.columns(len(metrics))
-    for col, (k, v) in zip(metric_cols, metrics.items()):
+    display_metrics = {
+        (f"Final Equity ({currency})" if k == "Final Equity ($)" else k): v
+        for k, v in metrics.items()
+    }
+    metric_cols = st.columns(len(display_metrics))
+    for col, (k, v) in zip(metric_cols, display_metrics.items()):
         col.metric(k, v)
 
     # --- Equity curve chart ---
@@ -127,7 +153,7 @@ if run_button:
                               name=f"{strategy_name} Strategy", line=dict(width=2)))
     fig.add_trace(go.Scatter(x=results.index, y=results["buy_hold_equity"],
                               name="Buy & Hold", line=dict(width=2, dash="dot")))
-    fig.update_layout(height=450, xaxis_title="Date", yaxis_title="Portfolio Value ($)",
+    fig.update_layout(height=450, xaxis_title="Date", yaxis_title=f"Portfolio Value ({currency})",
                        legend=dict(orientation="h", yanchor="bottom", y=1.02))
     st.plotly_chart(fig, use_container_width=True)
 
@@ -151,7 +177,7 @@ if run_button:
                                     name="Buy", marker=dict(symbol="triangle-up", size=10, color="green")))
     price_fig.add_trace(go.Scatter(x=long_exits.index, y=long_exits["Close"], mode="markers",
                                     name="Sell", marker=dict(symbol="triangle-down", size=10, color="red")))
-    price_fig.update_layout(height=450, xaxis_title="Date", yaxis_title="Price ($)",
+    price_fig.update_layout(height=450, xaxis_title="Date", yaxis_title=f"Price ({currency})",
                              legend=dict(orientation="h", yanchor="bottom", y=1.02))
     st.plotly_chart(price_fig, use_container_width=True)
 
@@ -177,10 +203,16 @@ if run_button:
         st.dataframe(results, use_container_width=True)
 
 else:
-    st.info("👈 Configure your ticker, date range, and strategy in the sidebar, then click **Run Backtest**.")
+    st.info("👈 Configure your market, ticker, date range, and strategy in the sidebar, then click **Run Backtest**.")
     st.markdown("""
     ### Available strategies
     - **Moving Average Crossover** — long when a fast moving average is above a slow moving average.
     - **Momentum** — long when trailing returns exceed a threshold.
     - **Mean Reversion** — long when price dips below a lower Bollinger Band, exits at the mean.
+
+    ### Indian market support 🇮🇳
+    Select **India (NSE)** or **India (BSE)** under Market in the sidebar. Type the symbol without
+    the exchange suffix (e.g. `RELIANCE`, `TCS`, `INFY`) — the app automatically appends `.NS` or
+    `.BO` for Yahoo Finance, and switches all prices/metrics to ₹. A dropdown of popular NSE stocks
+    is provided as a shortcut, or you can type any valid NSE/BSE symbol manually.
     """)

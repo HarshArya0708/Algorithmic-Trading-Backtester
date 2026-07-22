@@ -8,6 +8,7 @@ maximum drawdown, and equity curves.
 
 - ✅ Fetches historical and near real-time market data (via [yfinance](https://github.com/ranaroussi/yfinance))
 - ✅ Interactive UI — pick a ticker, date range, strategy, and parameters, no code required
+- ✅ **Indian market support** — NSE and BSE, with automatic `.NS`/`.BO` suffixing and ₹ currency display
 - ✅ Three built-in strategies: **Moving Average Crossover**, **Momentum**, **Mean Reversion**
 - ✅ Computes Sharpe Ratio, CAGR, annualized volatility, win rate
 - ✅ Measures Maximum Drawdown
@@ -63,11 +64,20 @@ Then open the local URL Streamlit prints (usually `http://localhost:8501`).
 
 ## How to use
 
-1. Enter a ticker symbol in the sidebar (e.g. `AAPL`, `MSFT`, `BTC-USD`, `EURUSD=X`).
-2. Pick a date range and data interval.
-3. Choose a strategy and tune its parameters with the sliders.
-4. Set your starting capital and commission assumptions.
-5. Click **Run Backtest** to see the equity curve, metrics, and trade log.
+1. Choose a **Market** in the sidebar: `Global / US`, `India (NSE)`, or `India (BSE)`.
+2. Enter a ticker symbol (e.g. `AAPL`, `MSFT`, `BTC-USD`, `EURUSD=X` for Global; `RELIANCE`, `TCS`,
+   `INFY` for India — no need to type `.NS`/`.BO`, it's added automatically). A dropdown of
+   popular NSE stocks is available as a shortcut when India (NSE) is selected.
+3. Pick a date range and data interval.
+4. Choose a strategy and tune its parameters with the sliders.
+5. Set your starting capital and commission assumptions (prices/metrics display in ₹ for Indian tickers, $ otherwise).
+6. Click **Run Backtest** to see the equity curve, metrics, and trade log.
+
+### Indian market notes
+
+- Yahoo Finance covers NSE (`.NS`) and BSE (`.BO`) listed stocks and indices (e.g. `^NSEI` for Nifty 50, `^BSESN` for Sensex).
+- If you type a symbol that already includes a suffix (or a `.` of any kind), it's used as-is and not double-suffixed.
+- Data delay and availability for Indian tickers follow the same Yahoo Finance limitations as other markets (see Notes & disclaimers below).
 
 ## Adding your own strategy
 
